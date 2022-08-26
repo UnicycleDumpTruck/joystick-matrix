@@ -17,25 +17,28 @@ class Joystick():
     self.up_pin.pull = digitalio.Pull.UP
     self.up_switch = Debouncer(self.up_pin)
     self.up_last = 0
-    
+    self.up_held = False
+
     self.down_pin = digitalio.DigitalInOut(down_pin)
     self.down_pin.direction = digitalio.Direction.INPUT
     self.down_pin.pull = digitalio.Pull.UP
     self.down_switch = Debouncer(self.down_pin)
     self.down_last = 0
-    
+    self.down_held = False
+
     self.left_pin = digitalio.DigitalInOut(left_pin)
     self.left_pin.direction = digitalio.Direction.INPUT
     self.left_pin.pull = digitalio.Pull.UP
     self.left_switch = Debouncer(self.left_pin)
     self.left_last = 0
-    
+    self.left_held = False
+
     self.right_pin = digitalio.DigitalInOut(right_pin)
     self.right_pin.direction = digitalio.Direction.INPUT
     self.right_pin.pull = digitalio.Pull.UP
     self.right_switch = Debouncer(self.right_pin)
     self.right_last = 0
-    
+    self.right_held = False
     
   def vector(self):
     self.up_switch.update()
@@ -46,28 +49,36 @@ class Joystick():
     x = 0
     y = 0
     
-    if self.up_switch.fell or (self.up_last and ((time.monotonic() - self.up_last) > REPEAT_RATE)):
+    if self.up_switch.fell or (self.up_held and ((time.monotonic() - self.up_last) > REPEAT_RATE)):
       y += 1
       self.up_last = time.monotonic()
-    elif self.up_switch.rose:
+      self.up_held = True
+    if self.up_switch.rose:
       self.up_last_repeat = 0
+      self.up_held = False
       
-    if self.down_switch.fell or (self.down_last and ((time.monotonic() - self.down_last) > REPEAT_RATE)):
+    if self.down_switch.fell or (self.down_held and ((time.monotonic() - self.down_last) > REPEAT_RATE)):
       y -= 1
       self.down_last = time.monotonic()
+      self.down_held = True
     elif self.down_switch.rose:
       self.down_last_repeat = 0
+      self.down_held = False
 
-    if self.left_switch.fell or (self.left_last and ((time.monotonic() - self.left_last) > REPEAT_RATE)):
+    if self.left_switch.fell or (self.left_held and ((time.monotonic() - self.left_last) > REPEAT_RATE)):
       x -= 1
       self.left_last = time.monotonic()
+      self.left_held = True
     elif self.left_switch.rose:
       self.left_last_repeat = 0
+      self.left_held = False
       
-    if self.right_switch.fell or (self.right_last and ((time.monotonic() - self.right_last) > REPEAT_RATE)):
+    if self.right_switch.fell or (self.right_held and ((time.monotonic() - self.right_last) > REPEAT_RATE)):
       x += 1
       self.right_last = time.monotonic()
+      self.right_held = True
     elif self.right_switch.rose:
       self.right_last_repeat = 0
+      self.right_held = False
       
     return (x,y)

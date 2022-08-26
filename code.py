@@ -6,8 +6,13 @@ import neopixel
 import digitalio as dio
 from adafruit_debouncer import Debouncer
 
+import joystick
+import cursor
 
-lever_pin = dio.DigitalInOut(board.D10)
+js = joystick.Joystick(board.D13, board.D12, board.D11, board.D10)
+curs = cursor.Cursor(8,8)
+
+lever_pin = dio.DigitalInOut(board.D9)
 lever_pin.direction = dio.Direction.INPUT
 lever_pin.pull = dio.Pull.UP
 lever = Debouncer(lever_pin)
@@ -15,13 +20,13 @@ lever = Debouncer(lever_pin)
 
 # On CircuitPlayground Express, and boards with built in status NeoPixel -> board.NEOPIXEL
 # Otherwise choose an open pin connected to the Data In of the NeoPixel strip, i.e. board.D1
-pixel_pin = board.NEOPIXEL #D4
+pixel_pin = board.D4
 
 # On a Raspberry pi, use this instead, not all pins are supported
 # pixel_pin = board.D18
 
 # The number of NeoPixels
-num_pixels = 1 #64
+num_pixels = 64
 
 # The order of the pixel colors - RGB or GRB. Some NeoPixels have red and green reversed!
 # For RGBW NeoPixels, simply change the ORDER to RGBW or GRBW.
@@ -45,6 +50,7 @@ class Mtx():
     color_names= {(0, 0, 0): 'off', (255, 0, 0):'red',
               (0, 255, 0):'green', (0, 0, 255):'blue'}
 
+
     def __init__(self, height, width, neopixels):
         self.height = height
         self.width = width
@@ -53,7 +59,24 @@ class Mtx():
         self.line = [Mtx.colors['off'] for _ in range(self.length)]
         self.locations = {key: [] for key in Mtx.colors.keys()}
         self.locations['off'] = [i for i in range(self.length)]
+
+        self.x_cursor_row = list(range(0,self.width))
+        self.y_cursor_column = [self.width * y for y in range(0,self.height)] 
+                
         print(self.locations)
+
+    def set_pixel(self, xy, color):
+        """Given xy tuple and RGB color tuple, set pixel to color."""
+        line_position = (xy[1] * self.width) + xy[0]
+        self.pixels[line_position] = color
+    def set_cursor(self, xy, color):
+        for px in self.x_cursor_row:
+            self.pixels[px] = (0,0,0)
+        for py in self.y_cursor_column:
+            self.pixels[py] = (0,0,0)
+        self.pixels[self.x_cursor_row[xy[0]]] = (0,255,0)
+        self.pixels[self.y_cursor_column[xy[1]]] = (0,255,0)
+
 
     def print_grid(self):
         for row in range(self.height):
@@ -109,52 +132,21 @@ class Mtx():
 
 mat = Mtx(8,8, pixels)
 
-
-class Knob():
-    def __init__(self, seesaw, matrix: Mtx, color):
-        self.seesaw = seesaw
-        self.matrix = matrix
-        self.color = color
-        seesaw_product = (self.seesaw.get_version() >> 16) & 0xFFFF
-        print(f"Found product {seesaw_product}")
-        if seesaw_product != 4991:
-            print("Wrong firmware loaded?  Expected 4991")
-
-        self.button = sdio.DigitalIO(seesaw, 24)
-        self.button_held = False
-        self.encoder = rotaryio.IncrementalEncoder(self.seesaw)
-        self.last_position = 0
-        self.last_change = 0
-
-    def update(self):
-        position = -self.encoder.position
-        if position > self.last_position:
-            print(f"Position increased to: {position}, diff {position - self.last_position}")
-            if ((position - self.last_change) > RESOLUTION):
-                # print("ADD "*15)
-                self.matrix.add_pxls(1, self.color)
-                self.last_change = position
-            self.last_position = position
-        elif position < self.last_position:
-            print(f"Position decreased to: {position}, diff {self.last_position - position}")
-            if ((self.last_change - position) > RESOLUTION):
-                # print("REMOVE "*15)
-                self.matrix.remove_pxls(1, self.color)
-                self.last_change = position
-            self.last_position = position
-        if not self.button.value and not self.button_held:
-            self.button_held = True
-            print("Button pressed")
-        if self.button.value and self.button_held:
-            self.button_held = False
-            print("Button released")
-
-
-
 print("Boot complete, starting loop...")
 
 while True:
     lever.update()
+    jsv = js.vector()
+    if jsv != (0,0):
+        curs.increment_vector(jsv)
+        c_pos = curs.position()
+        mat.set_cursor(c_pos, (0,255,0))
+        # mat.set_pixel((0, c_pos[0]), (0,255,0))
+        # mat.set_pixel((c_pos[1], 0), (0,255,0))
+    print(f"Joystick: {jsv}, cursor now: {curs.position()}")
+    # print(curs.position())
     if lever.rose or lever.fell:
         print("Button changed!")
+    if lever.fell:
+        mat.set_pixel(curs.position(), (255,0,0))
 
