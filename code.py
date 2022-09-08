@@ -1,6 +1,6 @@
 import time
 from time import sleep
-from collections import deque
+# from collections import deque
 import board
 import neopixel
 import digitalio as dio
@@ -9,7 +9,7 @@ from adafruit_debouncer import Debouncer
 import joystick
 import cursor
 
-TAIL_LENGTH = 8
+TAIL_LENGTH = 16
 
 js = joystick.Joystick(board.D13, board.D12, board.D11, board.D10)
 curs = cursor.Cursor(8,8)
@@ -29,11 +29,11 @@ pixel_pin = board.D4
 num_pixels = 64
 ORDER = neopixel.GRB
 pixels = neopixel.NeoPixel(
-    pixel_pin, num_pixels, brightness=255, auto_write=True, pixel_order=ORDER
+    pixel_pin, num_pixels, brightness=255, auto_write=False, pixel_order=ORDER
 )
 
 pixels.fill((0,0,0))
-
+pixels.show()
 
 class Mtx():
     def __init__(self, height, width, neopixels):
@@ -45,18 +45,20 @@ class Mtx():
         self.x_cursor_row = list(range(0,self.width))
         self.y_cursor_column = [self.width * y for y in range(0,self.height)] 
         
-        self.tail = deque([0], TAIL_LENGTH) # Track pixel path behind cursor, fade end to black
-
-        print(self.locations)
+        # self.tail = Deque([0], TAIL_LENGTH) # Track pixel path behind cursor, fade end to black
+        self.tail = []
 
     def set_pixel(self, xy, color):
         """Given xy tuple and RGB color tuple, set pixel to color."""
         line_position = (xy[1] * self.width) + xy[0]
         self.pixels[line_position] = color
-        outgoing = tail.popleft()
-        self.pixels[outgoing] = (0,0,0)
-        print(f"Popped {outgoing} from tail")
-        tail.append(line_position)
+        if len(self.tail) > TAIL_LENGTH:
+            outgoing = self.tail.pop(0)
+            if outgoing not in self.tail:
+                self.pixels[outgoing] = (0,0,0)
+            print(f"Popped {outgoing} from tail")
+        self.tail.append(line_position)
+        self.pixels.show()
         print(f"Appended {line_position} to tail")
 
     def set_cursor(self, xy, color):
@@ -66,7 +68,7 @@ class Mtx():
             self.pixels[py] = (0,0,0)
         self.pixels[self.x_cursor_row[xy[0]]] = (0,255,0)
         self.pixels[self.y_cursor_column[xy[1]]] = (0,255,0)
-
+        self.pixels.show()
 
     def print_grid(self):
         for row in range(self.height):
@@ -97,20 +99,24 @@ while True:
         # mat.set_pixel((0, c_pos[0]), (0,255,0))
         # mat.set_pixel((c_pos[1], 0), (0,255,0))
         mat.set_pixel(curs.position(), brush_color)
-    print(f"Joystick: {jsv}, cursor now: {curs.position()}")
+    # print(f"Joystick: {jsv}, cursor now: {curs.position()}")
     # print(curs.position())
     if btn_a.fell:
         if brush_color[0] == 0:
             brush_color[0] = 255
+            mat.set_pixel(curs.position(), brush_color)
             print("Added red")
         else:
             brush_color[0] = 0
+            mat.set_pixel(curs.position(), brush_color)
             print("Subtracted red")
     if btn_b.fell:
         if brush_color[2] == 0:
             brush_color[2] = 255
+            mat.set_pixel(curs.position(), brush_color)
             print("Added blue")
         else:
             brush_color[2] = 0
+            mat.set_pixel(curs.position(), brush_color)
             print("Subtracted blue")
 
